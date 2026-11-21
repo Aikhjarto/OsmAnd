@@ -194,7 +194,7 @@ public class AidlMapLayer extends OsmandMapLayer implements IContextMenuProvider
 					|| (pointsType == PointsType.STANDARD && radius != getRadiusPoi(tileBox))
 					|| (selectedPointId != null && !selectedPointId.equals(getSelectedContextMenuPointId()))
 					|| (selectedPointId == null && getSelectedContextMenuPointId() != null)
-					|| pointsLocationChanged()) {
+					|| pointsChanged()) {
 				clearAidlTileProvider();
 			}
 			pointImagesSize = pointImages.size();
@@ -440,17 +440,30 @@ public class AidlMapLayer extends OsmandMapLayer implements IContextMenuProvider
 		return r * 3 / 2;
 	}
 
-	private boolean pointsLocationChanged() {
+	/**
+	 * True if a displayed point moved or changed its appearance (image, short name, color) via
+	 * updateMapPoint. The OpenGL tile provider caches the rendered points, so appearance changes
+	 * have to invalidate it as well, not only location changes.
+	 */
+	private boolean pointsChanged() {
 		if (displayedPoints.size() != aidlLayer.getPointsSize()) {
 			return true;
 		}
 		for (AidlMapPointWrapper point : displayedPoints) {
 			AidlMapPointWrapper updatedPoint = aidlLayer.getPoint(point.getId());
-			if (updatedPoint != null && !point.getLocation().equals(updatedPoint.getLocation())) {
+			if (updatedPoint != null && (!point.getLocation().equals(updatedPoint.getLocation())
+					|| appearanceChanged(point, updatedPoint))) {
 				return true;
 			}
 		}
 		return false;
+	}
+
+	private static boolean appearanceChanged(@NonNull AidlMapPointWrapper point, @NonNull AidlMapPointWrapper updated) {
+		return point.getColor() != updated.getColor()
+				|| !Algorithms.stringsEqual(point.getShortName(), updated.getShortName())
+				|| !Algorithms.stringsEqual(point.getParams().get(AMapPoint.POINT_IMAGE_URI_PARAM),
+				updated.getParams().get(AMapPoint.POINT_IMAGE_URI_PARAM));
 	}
 
 	private void collectFromPoint(@NonNull MapSelectionResult result) {
